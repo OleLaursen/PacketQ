@@ -42,6 +42,7 @@
 #include <set>
 #include <map>
 #include <algorithm>
+#include <iostream>
 #include <functional>
 #include <stdexcept>
 #include <sys/types.h>
@@ -429,9 +430,9 @@ class Table
     }
 
     void dump();
-    void json(bool trailing_comma);
-    void csv(bool format = false);
-    void xml();
+    void json(std::ostream &stream, bool trailing_comma);
+    void csv(std::ostream &stream, bool format = false);
+    void xml(std::ostream &stream);
 
     Column *add_column(const char *name, Coltype::Type type, int id=-1, bool hidden=false);
     Column *add_column(const char *name, const char *type, int id=-1, bool hidden=false);

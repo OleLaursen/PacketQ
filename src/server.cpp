@@ -896,7 +896,7 @@ class Page
 
         query.execute(reader);
         if (query.m_result)
-            query.m_result->json(false);
+            query.m_result->json(std::cout, false);
     }
     Url m_url;
 };

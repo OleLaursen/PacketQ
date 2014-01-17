@@ -36,6 +36,8 @@
 #include <stack>
 #include <algorithm>
 #include <stdexcept>
+#include <iostream>
+#include <fstream>
 #ifndef WIN32
 #include <signal.h>
 #include <getopt.h>
@@ -47,13 +49,14 @@
 #include "pcap.h"
 #include "server.h"
 #include "reader.h"
+#include "cache.h"
 
 #define NUM_QUERIES	32
 
 namespace se {
 
 static void usage ( char * argv0, bool longversion ) {
-   fprintf (stdout, "usage: %s [ --select | -s select-statement ] [ --port | -p httpportnumber ] [ --json | -j ] [ --csv | -c ] [ --table | -t ] [ --xml | -x ] [ --daemon | -d ] [ --webroot | -w webdir ] [ --pcaproot | -r pcapdir ] [ --help | -h ] [ --limit | -l ] [ --maxconn | -m ] pcapfile(s)...\n", argv0);
+   fprintf (stdout, "usage: %s [ --select | -s select-statement ] [ --port | -p httpportnumber ] [ --json | -j ] [ --csv | -c ] [ --table | -t ] [ --xml | -x ] [ --daemon | -d ] [ --webroot | -w webdir ] [ --pcaproot | -r pcapdir ] [ --help | -h ] [ --limit | -l ] [ --maxconn | -m ] [ --cache cache-dir ] pcapfile(s)...\n", argv0);
    if (!longversion)
        return;
 
@@ -155,7 +158,7 @@ int main (int argc, char * argv [])
 
     init_packet_handlers();  // set up tables
 
-    std::string webroot="",pcaproot="";
+    std::string webroot="", pcaproot="", cache_dir="";
     std::string queries[NUM_QUERIES] = {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", };
     int qcount = 0;
 
@@ -169,13 +172,14 @@ int main (int argc, char * argv [])
 	    {"maxconn", 1, 0, 'm'},
 	    {"webroot", 1, 0, 'w'},
 	    {"pcaproot",1, 0, 'r'},
-	    {"port",	1, 0, 'p'},
-	    {"daemon",	0, 0, 'd'},
+            {"port",	1, 0, 'p'},
+            {"cache",	1, 0, 'y'},
+            {"daemon",	0, 0, 'd'},
 	    {"csv",	0, 0, 'c'},
 	    {"json",	0, 0, 'j'},
 	    {"table",	0, 0, 't'},
 	    {"xml",	0, 0, 'x'},
-	    {"help",	0, 0, 'h'},
+            {"help",	0, 0, 'h'},
 	    {"version", 0, 0, 'v'},
 	    {NULL,  0, 0, 0}
 	};
@@ -217,6 +221,11 @@ int main (int argc, char * argv [])
 	    case 'r':
 		pcaproot = optarg;
 		break;
+            case 'y':
+                cache_dir = optarg;
+                if (!cache_dir.empty() and cache_dir[cache_dir.size() - 1] != '/')
+                    cache_dir += '/';
+                break;
 	    case 'm':
 		max_conn = atoi(optarg)+1;
 		if (max_conn<2)
@@ -257,61 +266,84 @@ int main (int argc, char * argv [])
 	optind++;
     }
 
+    std::ostream *output = &std::cout;
+
+    bool cache_enabled = !cache_dir.empty();
+    std::string cache_path;
+    std::ofstream cache_output;
+    if (cache_enabled)
+    {
+        cache_path = compute_cache_path(cache_dir, argc, argv, in_files, g_app->get_output());
+
+        // try to read file, if success just output its contents
+        bool success = write_output_from_cache_input(cache_path, std::cout);
+        if (success)
+            exit(0);
+
+        mkpath(cache_dir);
+        cache_output.open(cache_path, std::ofstream::out | std::ofstream::trunc);
+        output = &cache_output;
+    }
+
     Reader reader(in_files, g_app->get_limit());
 
-    if ( g_app->get_output() == PacketQ::json ) {
-	printf("[\n");
-    }
-    for (int i=0; i < qcount; i++ ) {
-	char tablename[32];
-	snprintf(tablename, 32, "result-%d", i);
-	try
-	{
-	    Query query(tablename, queries[i].c_str());
+    try
+    {
+        if ( g_app->get_output() == PacketQ::json ) {
+            (*output) << "[\n";
+        }
+        for (int i=0; i < qcount; i++) {
+            char tablename[32];
+            snprintf(tablename, 32, "result-%d", i);
+            Query query(tablename, queries[i].c_str());
 	    query.parse();
             query.execute(reader);
             Table *result = query.m_result;
-
-            switch (g_app->get_output())
+            if (result)
             {
-                case( PacketQ::csv_format ):
-                    if (result)
-                        result->csv(true);
+                switch (g_app->get_output())
+                {
+                case PacketQ::csv_format:
+                    result->csv(*output, true);
                     break;
-                case( PacketQ::csv ):
-                    if (result)
-                        result->csv();
+                case PacketQ::csv:
+                    result->csv(*output);
                     break;
-                case( PacketQ::xml ):
-                    if (result)
-                        result->xml();
+                case PacketQ::xml:
+                    result->xml(*output);
                     break;
-                case( PacketQ::json ):
-                    if (result)
-                        result->json(i<(qcount-1));
+                case PacketQ::json:
+                    result->json(*output, i<(qcount-1));
                     break;
+                }
             }
-	}
-	catch(Error &e)
-	{
-	    printf( "Error: %s\n", e.m_err.c_str() );
-	    fflush( stdout );
-	    exit(1);
-	}
-	catch(...)
-	{
-	    printf( "Error: an unknown error has occured !\n" );
-	    fflush( stdout );
-	}
-
+        }
+        if ( g_app->get_output() == PacketQ::json ) {
+            (*output) << "]\n";
+        }
     }
-    if ( g_app->get_output() == PacketQ::json ) {
-	printf("]\n");
+    catch (Error &e)
+    {
+        (*output) << "Error: %s" << e.m_err << "\n";
+        output->flush();
+        exit(1);
+    }
+    catch (...)
+    {
+        (*output) << "Error: an unknown error has occurred!\n";
+        output->flush();
+        exit(1);
+    }
+
+    if (cache_enabled)
+    {
+        cache_output.close();
+        write_output_from_cache_input(cache_path, std::cout);
     }
 
     delete g_app;
 
-    void destroy_packet_handlers();
+    destroy_packet_handlers();
 
     return 0;
 }

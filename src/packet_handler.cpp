@@ -43,7 +43,6 @@ namespace se {
 
 Payload g_payload;
 
-Output g_output;
 Str_conv converter;
 
 class Fragments

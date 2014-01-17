@@ -649,28 +649,29 @@ void printrep(int n,char c)
     printf("%s",buf);
 }
 
-void Table::xml()
+void Table::xml(std::ostream &stream)
 {
-    g_output.reset();
+    Output output(stream);
+
     int cols = (int)m_cols.size();
 
-    g_output.add_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    g_output.add_string("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n");
-    g_output.add_string("<html  xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n<head>\n  <title>");
-    g_output.add_string(m_name.c_str());
-    g_output.add_string("</title>\n");
-    g_output.add_string("<style type=\"text/css\">\n");
-    g_output.add_string("    th.int   { color: #0F0C00; }\n");
-    g_output.add_string("    th.float { color: #0F0900; }\n");
-    g_output.add_string("    th.text  { color: #0F0600; }\n");
-    g_output.add_string("    th.bool  { color: #0C0900; }\n");
-    g_output.add_string("</style>\n");
-    g_output.add_string("</head>\n");
-    g_output.add_string("<body>\n");
-    g_output.add_string("<table>\n");
+    output.add_string("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    output.add_string("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n");
+    output.add_string("<html  xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n<head>\n  <title>");
+    output.add_string(m_name.c_str());
+    output.add_string("</title>\n");
+    output.add_string("<style type=\"text/css\">\n");
+    output.add_string("    th.int   { color: #0F0C00; }\n");
+    output.add_string("    th.float { color: #0F0900; }\n");
+    output.add_string("    th.text  { color: #0F0600; }\n");
+    output.add_string("    th.bool  { color: #0C0900; }\n");
+    output.add_string("</style>\n");
+    output.add_string("</head>\n");
+    output.add_string("<body>\n");
+    output.add_string("<table>\n");
 
 
-    g_output.add_string("<tr>");
+    output.add_string("<tr>");
 
     for (int i=0;i<cols;i++)
     {
@@ -693,16 +694,16 @@ void Table::xml()
                 t="bool";
                 break;
         }
-        g_output.add_string("<th class=\"");
-        g_output.add_string( t );
-        g_output.add_string("\">");
-        g_output.add_string( m_cols[i]->m_name.c_str() );
-        g_output.add_string("</th>");
+        output.add_string("<th class=\"");
+        output.add_string( t );
+        output.add_string("\">");
+        output.add_string( m_cols[i]->m_name.c_str() );
+        output.add_string("</th>");
     }
-    g_output.add_string("</tr>\n");
+    output.add_string("</tr>\n");
     for (std::list<Row *>::iterator it=m_rows.begin(); it!=m_rows.end();it++)
     {
-        g_output.add_string("<tr>");
+        output.add_string("<tr>");
         Row *r = *it;
        
         Variant v;
@@ -718,54 +719,55 @@ void Table::xml()
             static const int bufsize = 100;
             char buf[bufsize];
 
-            g_output.add_string("<td>");
+            output.add_string("<td>");
             switch(c->m_type)
             {
             case Coltype::_bool:
-                g_output.add_string(r->access_column<bool_column>(offset) ? "1" : "0");
+                output.add_string(r->access_column<bool_column>(offset) ? "1" : "0");
                 break;
             case Coltype::_int:
                 snprintf(buf, bufsize, "%i", r->access_column<int_column>(offset));
-                g_output.add_string(buf);
+                output.add_string(buf);
                 break;
             case Coltype::_float:
                 snprintf(buf, bufsize, "%g", r->access_column<float_column>(offset));
-                g_output.add_string(buf);
+                output.add_string(buf);
                 break;
             case Coltype::_text:
-                g_output.add_string(r->access_column<text_column>(offset)->data);
+                output.add_string(r->access_column<text_column>(offset)->data);
                 break;
             }
-            g_output.add_string("</td> ");
+            output.add_string("</td> ");
         }
 
-        g_output.add_string("</tr>\n");
+        output.add_string("</tr>\n");
     }
-    g_output.add_string("</table>\n");
-    g_output.add_string("</body>\n");
-    g_output.add_string("</html>\n");
-    g_output.print();
+    output.add_string("</table>\n");
+    output.add_string("</body>\n");
+    output.add_string("</html>\n");
+    output.print();
 }
 
-void Table::json(bool trailing_comma)
+void Table::json(std::ostream &stream, bool trailing_comma)
 {
-    g_output.reset();
+    Output output(stream);
+
     int cols = (int)m_cols.size();
 
-    g_output.add_string("  {\n    ");
+    output.add_string("  {\n    ");
 
-    g_output.add_q_string("table_name");
-    g_output.add_string(": ");
-    g_output.add_q_string(m_name.c_str());
-    g_output.add_string(",\n    ");
+    output.add_q_string("table_name");
+    output.add_string(": ");
+    output.add_q_string(m_name.c_str());
+    output.add_string(",\n    ");
 
-    g_output.add_q_string("query");
-    g_output.add_string(": ");
-    g_output.add_q_string(m_qstring.c_str());
-    g_output.add_string(",\n    ");
+    output.add_q_string("query");
+    output.add_string(": ");
+    output.add_q_string(m_qstring.c_str());
+    output.add_string(",\n    ");
 
-    g_output.add_q_string("head");
-    g_output.add_string(": [");
+    output.add_q_string("head");
+    output.add_string(": [");
 
     bool append_comma = false;
     for (int i=0;i<cols;i++)
@@ -774,17 +776,17 @@ void Table::json(bool trailing_comma)
             continue;
 
         if (append_comma)
-            g_output.add_string(",\n");
+            output.add_string(",\n");
         else
-            g_output.add_string("\n");
+            output.add_string("\n");
 	    append_comma = true;
-        g_output.add_string("      { ");
-        g_output.add_q_string("name");
-        g_output.add_string(": ");
-        g_output.add_q_string( m_cols[i]->m_name.c_str() );
-        g_output.add_string(",");
-        g_output.add_q_string("type");
-        g_output.add_string(": ");
+        output.add_string("      { ");
+        output.add_q_string("name");
+        output.add_string(": ");
+        output.add_q_string( m_cols[i]->m_name.c_str() );
+        output.add_string(",");
+        output.add_q_string("type");
+        output.add_string(": ");
         const char *t="";
         switch (m_cols[i]->m_type)
         {
@@ -801,19 +803,19 @@ void Table::json(bool trailing_comma)
                 t="bool";
                 break;
         }
-        g_output.add_q_string( t );
-        g_output.add_string(" }");
+        output.add_q_string( t );
+        output.add_string(" }");
     }
-    g_output.add_string("\n    ],\n    ");
-    g_output.add_q_string("data");
-    g_output.add_string(": [");
+    output.add_string("\n    ],\n    ");
+    output.add_q_string("data");
+    output.add_string(": [");
     bool outer_comma=false;
     for (std::list<Row *>::iterator it=m_rows.begin(); it!=m_rows.end();it++)
     {
         if (outer_comma)
-            g_output.add_string(",\n      [");
+            output.add_string(",\n      [");
         else
-            g_output.add_string("\n      [");
+            output.add_string("\n      [");
         outer_comma = true;
         bool comma  = false;
         Row *r = *it;
@@ -826,7 +828,7 @@ void Table::json(bool trailing_comma)
                 continue;
 
             if (comma)
-                g_output.add_string(",");
+                output.add_string(",");
 
             comma = true;
 
@@ -837,31 +839,31 @@ void Table::json(bool trailing_comma)
             switch(c->m_type)
             {
             case Coltype::_bool:
-                g_output.add_string(r->access_column<bool_column>(offset) ? "1" : "0");
+                output.add_string(r->access_column<bool_column>(offset) ? "1" : "0");
                 break;
             case Coltype::_int:
                 snprintf(buf, bufsize, "%i", r->access_column<int_column>(offset));
-                g_output.add_string(buf);
+                output.add_string(buf);
                 break;
             case Coltype::_float:
                 snprintf(buf, bufsize, "%g", r->access_column<float_column>(offset));
-                g_output.add_string(buf);
+                output.add_string(buf);
                 break;
             case Coltype::_text:
-                g_output.add_q_string(r->access_column<text_column>(offset)->data);
+                output.add_q_string(r->access_column<text_column>(offset)->data);
                 break;
             }
         }
 
-        g_output.add_string("]");
+        output.add_string("]");
     }
-    g_output.add_string("\n    ]\n");
+    output.add_string("\n    ]\n");
     if (trailing_comma) {
-	g_output.add_string("  },\n");
+        output.add_string("  },\n");
     } else {
-	g_output.add_string("  }\n");	
+        output.add_string("  }\n");
     }
-    g_output.print();
+    output.print();
 }
 
 std::string qoute_string(const std::string &s)
@@ -881,7 +883,7 @@ std::string qoute_string(const std::string &s)
 }
 
 
-void Table::csv(bool format)
+void Table::csv(std::ostream &stream, bool format)
 {
     int cols = (int)m_cols.size();
     std::vector<int> col_len( cols );
@@ -957,14 +959,15 @@ void Table::csv(bool format)
         if (m_cols[i]->m_hidden)
             continue;
 
-        printf("%s", qoute_string(m_cols[i]->m_name).c_str());
+        stream << qoute_string(m_cols[i]->m_name);
         if (i<cols-1)
+        {
             if (format)
-                printf("%s,", &tmp[ qoute_string(m_cols[i]->m_name).length()+max-col_len[i]+1]);
-            else
-                printf(",");
+                stream << tmp[ qoute_string(m_cols[i]->m_name).length()+max-col_len[i]+1];
+            stream << ",";
+        }
     }
-    printf("\n");
+    stream << "\n";
     for (std::list<Row *>::iterator it=m_rows.begin(); it!=m_rows.end();it++)
     {
         Row *r = *it;
@@ -1000,16 +1003,15 @@ void Table::csv(bool format)
                 break;
             }
 
-            fputs(out.c_str(), stdout);
+            stream << out.c_str();
             if (i<cols-1)
+            {
                 if (format)
-                    printf("%s,", &tmp[ out.length() + max - col_len[i] + 1 ] );
-                else
-                    printf(",");
-            
+                    stream << tmp[ out.length() + max - col_len[i] + 1 ];
+                stream << ",";
+            }
         }
-
-        printf("\n");
+        stream << "\n";
     }
     delete []tmp;
 }
