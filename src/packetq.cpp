@@ -32,9 +32,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <list>
-#include <stack>
 #include <algorithm>
+#include <vector>
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
@@ -50,8 +49,6 @@
 #include "server.h"
 #include "reader.h"
 #include "cache.h"
-
-#define NUM_QUERIES	32
 
 namespace se {
 
@@ -159,8 +156,7 @@ int main (int argc, char * argv [])
     init_packet_handlers();  // set up tables
 
     std::string webroot="", pcaproot="", cache_dir="";
-    std::string queries[NUM_QUERIES] = {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", };
-    int qcount = 0;
+    std::vector<std::string> queries;
 
     while (1) 
     {
@@ -194,12 +190,8 @@ int main (int argc, char * argv [])
 		exit (0);
 		break;
 	    case 's':
-		if (qcount < NUM_QUERIES) {
-		    queries[qcount++] = optarg;
-		} else {
-		    fprintf(stderr, "Warning: can't handle more than %d separate query strings; discarding '%s'\n", NUM_QUERIES, optarg);
-		}
-		break;
+                queries.push_back(optarg);
+                break;
 	    case 'c':
 		g_app->set_output(PacketQ::csv);
 		break;
@@ -273,7 +265,7 @@ int main (int argc, char * argv [])
     std::ofstream cache_output;
     if (cache_enabled)
     {
-        cache_path = compute_cache_path(cache_dir, argc, argv, in_files, g_app->get_output());
+        cache_path = compute_cache_path(cache_dir, queries, in_files, g_app->get_output());
 
         // try to read file, if success just output its contents
         bool success = write_output_from_cache_input(cache_path, std::cout);
@@ -292,7 +284,7 @@ int main (int argc, char * argv [])
         if ( g_app->get_output() == PacketQ::json ) {
             (*output) << "[\n";
         }
-        for (int i=0; i < qcount; i++) {
+        for (int i = 0; i < queries.size(); ++i) {
             char tablename[32];
             snprintf(tablename, 32, "result-%d", i);
             Query query(tablename, queries[i].c_str());
@@ -313,7 +305,7 @@ int main (int argc, char * argv [])
                     result->xml(*output);
                     break;
                 case PacketQ::json:
-                    result->json(*output, i<(qcount-1));
+                    result->json(*output, i < (queries.size() - 1));
                     break;
                 }
             }

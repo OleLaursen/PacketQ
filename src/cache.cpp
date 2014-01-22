@@ -38,28 +38,26 @@ int mkpath(std::string path)
     return mdret;
 }
 
-std::string compute_cache_path(std::string cache_dir, int argc, char * argv [],
-                               std::vector<std::string> mod_time_paths,
+std::string compute_cache_path(std::string cache_dir,
+                               std::vector<std::string> queries,
+                               std::vector<std::string> in_files,
                                PacketQ::OutputOpts output_opts)
 {
     // cache_dir is assumed to end with a /
 
     std::string cache_key = "";
 
-    for (int i = 1; i < argc; ++i)
+    for (auto i = queries.begin(); i != queries.end(); ++i)
     {
-        cache_key += argv[i];
-        cache_key += "|";
+        cache_key += *i + "|";
     }
 
-    // include modification times of input files
-    for (auto i = mod_time_paths.begin(); i != mod_time_paths.end(); ++i)
+    for (auto i = in_files.begin(); i != in_files.end(); ++i)
     {
-        struct stat buf;
-        buf.st_mtime = 0; // make sure it's initialized
-        stat(i->c_str(), &buf);
-        cache_key += std::to_string(buf.st_mtime) + "|";
+        cache_key += *i + "|";
     }
+
+    cache_key += std::to_string(output_opts) + "|";
 
     // hash key
     unsigned char md5_result[16];
